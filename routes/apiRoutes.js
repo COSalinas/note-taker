@@ -1,27 +1,51 @@
-const router = require("express").Router();
-const store = require("../db/store");
+const db = require("../db/db.json");
+const fs = require("fs");
+const uuid = require("uuid/v4");
 
-// GET "/api/notes" responds with all notes from the database
-router.get("/notes", (req, res) => {
-  store
-    .getNotes()
-    .then((notes) => res.json(notes))
-    .catch((err) => res.status(500).json(err));
-});
+module.exports = function(app) {
+  app.get("/api/notes", function(req, res) {
+    res.send(db);
+  });
 
-router.post("/notes", (req, res) => {
-  store
-    .addNote(req.body)
-    .then((note) => res.json(note))
-    .catch((err) => res.status(500).json(err));
-});
+  app.post("/api/notes", function(req, res) {
 
-// DELETE "/api/notes" deletes the note with an id equal to req.params.id
-router.delete("/notes/:id", (req, res) => {
-  store
-    .removeNote(req.params.id)
-    .then(() => res.json({ ok: true }))
-    .catch((err) => res.status(500).json(err));
-});
+    let noteId = uuid();
+    let newNote = {
+      id: noteId,
+      title: req.body.title,
+      text: req.body.text
+    };
 
-module.exports = router;
+    fs.readFile("./db/db.json", "utf8", (err, data) => {
+      if (err) throw err;
+
+      const allNotes = JSON.parse(data);
+
+      allNotes.push(newNote);
+
+      fs.writeFile("./db/db.json", JSON.stringify(allNotes, null, 2), err => {
+        if (err) throw err;
+        res.send(db);
+        console.log("Note created!")
+      });
+    });
+  });
+
+  app.delete("/api/notes/:id", (req, res) => {
+
+    let noteId = req.params.id;
+
+    fs.readFile("./db/db.json", "utf8", (err, data) => {
+      if (err) throw err;
+
+      const allNotes = JSON.parse(data);
+      const newAllNotes = allNotes.filter(note => note.id != noteId);
+
+      fs.writeFile("./db/db.json", JSON.stringify(newAllNotes, null, 2), err => {
+        if (err) throw err;
+        res.send(db);
+        console.log("Note deleted!")
+      });
+    });
+  });
+};
